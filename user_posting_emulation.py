@@ -27,23 +27,13 @@ class AWSDBConnector:
 
 
 new_connector = AWSDBConnector()
-API_URL = "https://8cijr26k96.execute-api.us-east-1.amazonaws.com/API"
-
-def send_data_to_api(data):
-    try:
-        response = requests.post(API_URL, json=data)
-        if response.status_code == 200:
-            print("Data sent successfully")
-        else:
-            print("Failed to send data. Status code:", response.status_code)
-    except Exception as e:
-        print("Error occurred while sending data:", str(e))
 
 def run_infinite_post_data_loop():
     while True:
         sleep(random.randrange(0, 2))
         random_row = random.randint(0, 11000)
         engine = new_connector.create_db_connector()
+        invoke_url = "https://8cijr26k96.execute-api.us-east-1.amazonaws.com/API"
 
         with engine.connect() as connection:
 
@@ -52,6 +42,21 @@ def run_infinite_post_data_loop():
             
             for row in pin_selected_row:
                 pin_result = dict(row._mapping)
+                payload = json.dumps({
+                    "records": [
+                        {
+                        #Data should be send as pairs of column_name:value, with different columns separated by commas       
+                        "value": {"index": pin_result["index"], "unique_id": pin_result["unique_id"], "title": pin_result["title"], "description": pin_result["description"],
+                                  "poster_name": pin_result["poster_name"], "follower_count": pin_result["follower_count"], "tag_list": pin_result["tag_list"],
+                                  "is_image_or_video": pin_result["is_image_or_video"], "image_src": pin_result["image_src"], "downloaded": pin_result["downloaded"],
+                                  "save_location": pin_result["save_location"], "category": pin_result["category"]}
+                        }
+                    ]    
+                })
+
+                headers = {'Content-Type': 'application/vnd.kafka.json.v2+json'}
+                response = requests.request("POST", invoke_url, headers=headers, data=payload)
+                
 
             geo_string = text(f"SELECT * FROM geolocation_data LIMIT {random_row}, 1")
             geo_selected_row = connection.execute(geo_string)
@@ -65,12 +70,12 @@ def run_infinite_post_data_loop():
             for row in user_selected_row:
                 user_result = dict(row._mapping)
             
+            print(response.status_code)
             print(pin_result)
-            print(geo_result)
-            print(user_result)
+            #print(geo_result)
+            #print(user_result)
 
 
 if __name__ == "__main__":
     run_infinite_post_data_loop()
     print('Working')
-    
